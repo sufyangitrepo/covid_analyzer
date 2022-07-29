@@ -1,32 +1,57 @@
 import math
 import pandas as pd
+from pandas import errors
+import enum
+from enum import Enum
+
+"""
+    This project is related to analyze covid status 
+    with three common functionalities 
+    1. calculate the ratio of recovered cases in any given country => recovered_ratio()
+    2. calculate the average death rate on any given measure      =>  averager_death_rate()
+    3. find 5 mostly adopted efficient measures                  =>   efficient_measures()
+    
+"""
 
 
 class CovidAnalyzer:
-    COVID_STATS_FLAG = 0
-    MEASURES_STATS_FLAG = 1
-
-    """ Constructor of this class use to initiate an object
+    """ Constructor takes two parameters one is covid file path
+        another is , covid measures file path
     """
+
     def __init__(self, covid_file_path: str, measure_file_path: str):
         self.__covid_stats = None
         self.__safety_measures_states = None
-        self.set_measures_stats(measure_file_path)
-        self.set_covid_stats(covid_file=covid_file_path)
+        self.read_measures_stats(safety_measures_file_path=measure_file_path)
+        self.read_covid_stats(covid_file_path=covid_file_path)
 
-    """ setter and getters for both files objects 
     """
-    def set_measures_stats(self, safety_measures_file):
+        this function will be used to read the covid measures stats
+        having  one paramter that is the path of file  
+    """
+    def read_measures_stats(self, safety_measures_file_path):
         try:
-            self.__safety_measures_states = pd.read_csv(safety_measures_file)
-        except Exception as exception:
-            print(exception)
+            self.__safety_measures_states = pd.read_csv(safety_measures_file_path)
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                'There is no file with this \'{}\''.format(safety_measures_file_path))
+        except errors.EmptyDataError:
+            raise errors.EmptyDataError('There is no data')
+        except Exception:
+            raise Exception('Some other exception')
 
-    def set_covid_stats(self, covid_file):
+    """ This function also used to read the file that has covid stats
+        take one argument as file location/path  
+    """
+    def read_covid_stats(self, covid_file_path):
         try:
-            self.__covid_stats = pd.read_csv(covid_file)
-        except Exception as exception:
-            print(exception)
+            self.__covid_stats = pd.read_csv(covid_file_path)
+        except FileNotFoundError:
+            raise FileNotFoundError('There is no file with this name \'{}\''.format(covid_file_path))
+        except errors.EmptyDataError:
+            raise errors.EmptyDataError('there is no data in this file')
+        except Exception:
+            raise Exception('some error you cant proceed')
 
     def get_covid_stats(self):
         return self.__covid_stats
@@ -39,7 +64,7 @@ class CovidAnalyzer:
 
     def recovered_ratio(self, country_name: str):
         try:
-            rec = self.fetch_records('country', country_name, CovidAnalyzer.COVID_STATS_FLAG)
+            rec = self.fetch_records('country', country_name, FileStatus.COVID_STATS_FLAG)
             series_of_recovered_cases = rec['total_recovered']
             series_of_total_cases = rec['total_cases']
             if len(series_of_recovered_cases) > 0 and len(series_of_total_cases) > 0:
@@ -52,12 +77,18 @@ class CovidAnalyzer:
         except Exception as exception:
             print(exception)
 
-    # This function will return the record from covid stats
-    # file corresponding given country name
+    """This function will return the record from covid stats
+       file corresponding given country name
+       it takes the three parameters 
+       column name => from which have to search
+       search => use to filter the data 
+       flag   => from which file have to fetch the data .
+       it may be   COVID_STATS_FLAG or MEASURES_STATS_FLAG 
+    """
     def fetch_records(self, col_name, search, flag):
-        if flag == CovidAnalyzer.COVID_STATS_FLAG:
+        if flag == FileStatus.COVID_STATS_FLAG:
             return self.get_covid_stats().loc[self.get_covid_stats()[col_name] == search]
-        elif flag == CovidAnalyzer.MEASURES_STATS_FLAG:
+        elif flag == FileStatus.MEASURES_STATS_FLAG:
             return self.get_measure_stats().loc[self.get_measure_stats()[col_name] == search]
         else:
             return 'invalid flag'
@@ -65,16 +96,17 @@ class CovidAnalyzer:
     """ This function calculates the average death rate from all over the
         glob depending on the measure the is given to it as input
     """
-    def average_death(self, measure: str):
+
+    def average_death_rate(self, measure: str):
         total_deaths_rate = 0
 
         try:
             series_of_countries_with_measures = \
-                self.fetch_records('measure', measure, CovidAnalyzer.MEASURES_STATS_FLAG)['country']
+                self.fetch_records('measure', measure, FileStatus.MEASURES_STATS_FLAG)['country']
 
             for i in series_of_countries_with_measures:
-                total_deaths_series = self.fetch_records('country', i, CovidAnalyzer.COVID_STATS_FLAG)['total_deaths']
-                total_cases_series = self.fetch_records('country', i, CovidAnalyzer.COVID_STATS_FLAG)['total_cases']
+                total_deaths_series = self.fetch_records('country', i, FileStatus.COVID_STATS_FLAG)['total_deaths']
+                total_cases_series = self.fetch_records('country', i, FileStatus.COVID_STATS_FLAG)['total_cases']
                 if len(total_cases_series) > 0 and len(total_deaths_series) > 0:
                     deaths_per_measure = total_deaths_series.iloc[0]
                     cases_per_measure = total_cases_series.iloc[0]
@@ -95,6 +127,7 @@ class CovidAnalyzer:
         then acording to this measures search all countries which adopt this measure
         and in this way it calculate the efficiency of each measure
     """
+
     def efficient_measures(self, ):
 
         try:
@@ -117,9 +150,9 @@ class CovidAnalyzer:
                 sum_of_total_cases = 0
                 series_of_countries = self.fetch_records('measure',
                                                          list_of_mostly_adopted_measures[index],
-                                                         CovidAnalyzer.MEASURES_STATS_FLAG)['country']
+                                                         FileStatus.MEASURES_STATS_FLAG)['country']
                 for country in series_of_countries:
-                    data_frame = self.fetch_records('country', country, CovidAnalyzer.COVID_STATS_FLAG)
+                    data_frame = self.fetch_records('country', country, FileStatus.COVID_STATS_FLAG)
                     recovered_cases = data_frame['total_recovered']
                     total_cases = data_frame['total_cases']
                     if len(recovered_cases) > 0 and len(total_cases) > 0 and not math.isnan(
@@ -134,7 +167,25 @@ class CovidAnalyzer:
             return exception
 
 
-covidAnalyzer = CovidAnalyzer(covid_file_path='covid_cases_stats.csv', measure_file_path='covid_safety_measures.csv')
-covidAnalyzer.recovered_ratio(input('enter country name: '))
-covidAnalyzer.average_death(input('enter measure: '))
-print(covidAnalyzer.efficient_measures())
+"""
+   Enum that has two flags one for covid stats
+    and other for measure stats
+"""
+
+
+class FileStatus(Enum):
+    COVID_STATS_FLAG = 0
+    MEASURES_STATS_FLAG = 1
+
+
+if __name__ == "__main__":
+    try:
+        covidAnalyzer = CovidAnalyzer(covid_file_path='covid_cases_stats.csv',
+                                  measure_file_path='covid_safety_measures.csv')
+        covidAnalyzer.recovered_ratio(input('enter country name: '))
+        covidAnalyzer.average_death_rate(input('enter measure: '))
+        print(covidAnalyzer.efficient_measures())
+    except Exception as ex:
+        print(ex)
+
+
