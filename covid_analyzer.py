@@ -4,25 +4,25 @@
     1. calculate the ratio of recovered cases in any given country => recovered_ratio()
     2. calculate the average death rate on any given measure      =>  averager_death_rate()
     3. find 5 mostly adopted efficient measures                  =>   efficient_measures()
-
 """
-
-
 import pandas as pd
 from pandas import errors
 import enum
 from enum import Enum
 import math
+import sys
+
+from pandas.errors import EmptyDataError
 
 
 class CovidAnalyzer:
-
     """
        Covid Analyzer class provide the three basic Functionalities
        get_recovered_ratio: this function calculates the recovered ratio of patients in a given country
        average_death_rate:  this calculates the average death rate on a given measure
        efficient_measures : this calculates the five mostly adopted measures
     """
+
     def __init__(self, covid_file_path: str, measure_file_path: str):
 
         """
@@ -100,12 +100,13 @@ class CovidAnalyzer:
 
     def fetch_records(self, col_name: str, search: str, flag: str):
 
-        """This function will return the record from covid stats file corresponding given country name.
-               it takes the three parameters :
+        """
+        This function will return the record from covid stats file corresponding given country name.
+        it takes the three parameters :
                column name: from which have to search.
                search:      use to filter the data.
                flag:        from which file have to fetch the data. it COVID_STATS_FLAG or MEASURES_STATS_FLAG
-            """
+        """
 
         if flag == FileType.COVID_STATS_FLAG:
             return self.get_covid_stats().loc[self.get_covid_stats()[col_name] == search]
@@ -145,7 +146,7 @@ class CovidAnalyzer:
         except Exception as exception:
             print(exception)
 
-    def find_efficient_measures(self, ) -> None:
+    def find_efficient_measures(self, ) -> EmptyDataError:
 
         """ This function gives the five mostly adopted measures with their
                 efficiency . first it selects five measures that is mostly adopted
@@ -157,12 +158,9 @@ class CovidAnalyzer:
         try:
             # value_counts() function will count the occurrence of each measure .
             # it just get first five that is mostly adopted
-            mostly_adopted_measure = self.get_measure_stats().loc[
-                self.get_measure_stats()['measure'].value_counts()[0:5]]
-
+            series_mostly_adopted_measure = self.get_measure_stats()['measure'].value_counts()[0:5]
             # Convert  them into list
-            list_of_mostly_adopted_measures = list(mostly_adopted_measure['measure'])
-
+            list_of_mostly_adopted_measures = series_mostly_adopted_measure.index.tolist()
             # Dictionary for result
             dict_of_result = {}
         except errors.EmptyDataError as exception:
@@ -202,6 +200,7 @@ class FileType(Enum):
 
 
 if __name__ == "__main__":
+
     try:
         covidAnalyzer = CovidAnalyzer(covid_file_path='covid_cases_stats.csv',
                                       measure_file_path='covid_safety_measures.csv')
