@@ -5,14 +5,26 @@
     2. calculate the average death rate on any given measure      =>  averager_death_rate()
     3. find 5 mostly adopted efficient measures                  =>   efficient_measures()
 """
+import sys
+
 import pandas as pd
 from pandas import errors
 import enum
-from enum import Enum
 import math
-import sys
-
 from pandas.errors import EmptyDataError
+
+
+class FileType(enum.Enum):
+    """
+      Enum FileType that has two flags on base of these flags fetch_record() will search in one file
+      either covid stats file or measure stats file
+      COVID_STATS_FLAG :     it is for Covid stats file
+      MEASURES_STATS_FLAG :  it is for Measure stats file
+
+    """
+
+    COVID_STATS_FLAG = 0
+    MEASURES_STATS_FLAG = 1
 
 
 class CovidAnalyzer:
@@ -90,6 +102,7 @@ class CovidAnalyzer:
             raise errors.DtypeWarning('Data type mismatch error')
         except Exception:
             raise Exception('some other errors')
+
         if len(series_of_recovered_cases) > 0 and len(series_of_total_cases) > 0:
             recovered = series_of_recovered_cases.iloc[0]
             total_case = series_of_total_cases.iloc[0]
@@ -98,7 +111,7 @@ class CovidAnalyzer:
         else:
             print('There is no country with this name!!')
 
-    def fetch_records(self, col_name: str, search: str, flag: str):
+    def fetch_records(self, col_name: str, country_name: str, flag: str):
 
         """
         This function will return the record from covid stats file corresponding given country name.
@@ -109,12 +122,12 @@ class CovidAnalyzer:
         """
 
         if flag == FileType.COVID_STATS_FLAG:
-            return self.get_covid_stats().loc[self.get_covid_stats()[col_name] == search]
+            return self.get_covid_stats().loc[self.get_covid_stats()[col_name] == country_name]
 
         elif flag == FileType.MEASURES_STATS_FLAG:
-            return self.get_measure_stats().loc[self.get_measure_stats()[col_name] == search]
+            return self.get_measure_stats().loc[self.get_measure_stats()[col_name] == country_name]
         else:
-            return 'invalid flag'
+            raise ValueError('invalid flag it should 1 or 0 ')
 
     def find_average_death_rate(self, measure: str) -> None:
         """ This function calculates the average death rate from all over the
@@ -123,30 +136,29 @@ class CovidAnalyzer:
             measure:    covid measure that adopt different countries
             """
         deaths_rate_sum = 0
-
-        try:
-            series_of_countries_with_measures = \
+        series_of_countries_with_measures = \
                 self.fetch_records('measure', measure, FileType.MEASURES_STATS_FLAG)['country']
 
-            for i in series_of_countries_with_measures:
-                total_deaths_series = self.fetch_records('country', i, FileType.COVID_STATS_FLAG)['total_deaths']
-                total_cases_series = self.fetch_records('country', i, FileType.COVID_STATS_FLAG)['total_cases']
-                if len(total_cases_series) > 0 and len(total_deaths_series) > 0:
-                    deaths_per_measure = total_deaths_series.iloc[0]
-                    cases_per_measure = total_cases_series.iloc[0]
-                    if not math.isnan(deaths_per_measure) and not math.isnan(cases_per_measure):
-                        death_rate = cases_per_measure / deaths_per_measure
-                        deaths_rate_sum += death_rate
+        for i in series_of_countries_with_measures:
+            total_deaths_series = \
+                self.fetch_records('country', i, FileType.COVID_STATS_FLAG)['total_deaths']
+            total_cases_series = \
+                self.fetch_records('country', i, FileType.COVID_STATS_FLAG)['total_cases']
+            if len(total_cases_series) > 0 and len(total_deaths_series) > 0:
+                deaths_per_measure = total_deaths_series.iloc[0]
+                cases_per_measure = total_cases_series.iloc[0]
+                if not math.isnan(deaths_per_measure) and not math.isnan(cases_per_measure):
+                    death_rate = cases_per_measure / deaths_per_measure
+                    deaths_rate_sum += death_rate
 
-            if len(series_of_countries_with_measures) > 0:
-                print('Average Death Rate: {:.6}'. \
-                      format(deaths_rate_sum / len(series_of_countries_with_measures)))
-            else:
-                print('there is no country with this measure')
-        except Exception as exception:
-            print(exception)
+        if len(series_of_countries_with_measures) > 0:
+            print('Average Death Rate: {:.6}'. \
+                  format(deaths_rate_sum / len(series_of_countries_with_measures)))
+        else:
+            raise ValueError('there is no country taking this measure')
 
-    def find_efficient_measures(self, ) -> EmptyDataError:
+
+    def find_efficient_measures(self) -> EmptyDataError:
 
         """ This function gives the five mostly adopted measures with their
                 efficiency . first it selects five measures that is mostly adopted
@@ -154,15 +166,15 @@ class CovidAnalyzer:
                 and in this way it calculates the efficiency of each measure
 
             """
-
+        # Dictionary for result
+        dict_of_result = {}
         try:
             # value_counts() function will count the occurrence of each measure .
             # it just get first five that is mostly adopted
             series_mostly_adopted_measure = self.get_measure_stats()['measure'].value_counts()[0:5]
             # Convert  them into list
             list_of_mostly_adopted_measures = series_mostly_adopted_measure.index.tolist()
-            # Dictionary for result
-            dict_of_result = {}
+
         except errors.EmptyDataError as exception:
             return errors.EmptyDataError('empty data error')
             # Iterate the mostly adopted measure list and fetch each measures efficiency accordingly
@@ -186,30 +198,51 @@ class CovidAnalyzer:
         return dict_of_result  # return final result
 
 
-class FileType(Enum):
-    """
-      Enum FileType that has two flags on base of these flags fetch_record() will search in one file
-      either covid stats file or measure stats file
-      COVID_STATS_FLAG :     it is for Covid stats file
-      MEASURES_STATS_FLAG :  it is for Measure stats file
-
-    """
-
-    COVID_STATS_FLAG = 0
-    MEASURES_STATS_FLAG = 1
 
 
 if __name__ == "__main__":
 
+    length = len(sys.argv)
     try:
-        covidAnalyzer = CovidAnalyzer(covid_file_path='covid_cases_stats.csv',
-                                      measure_file_path='covid_safety_measures.csv')
-        print('enter country name: ', end='')
-        country_name = input()
-        covidAnalyzer.get_recovered_ratio(country_name)
-        print('enter measure: ', end='')
-        measure = input()
-        covidAnalyzer.find_average_death_rate(measure)
+       covidAnalyzer = \
+           CovidAnalyzer(covid_file_path='covid_cases_stats.csv',
+                         measure_file_path='covid_safety_measures.csv')
+    except Exception as e:
+        raise FileNotFoundError('File not found')
+
+    if length == 1:
+
+        try:
+            country_name = input("enter country name: ")
+            covidAnalyzer.get_recovered_ratio(country_name)
+            measure = input('enter measure: ')
+            covidAnalyzer.find_average_death_rate(measure)
+        except Exception as e:
+            print(str(e))
+            print(covidAnalyzer.find_efficient_measures())
+    elif length == 2:
+        country_name = sys.argv[1]
+        try:
+            covidAnalyzer.get_recovered_ratio(country_name)
+        except Exception as ex:
+            print(ex)
+        try:
+            measure = input('enter measure: ')
+            covidAnalyzer.find_average_death_rate(measure)
+        except Exception as e:
+            print(str(e))
         print(covidAnalyzer.find_efficient_measures())
-    except Exception as ex:
-        print(ex)
+
+    elif length > 2:
+
+        country_name = sys.argv[1]
+        measure = ' '.join(str(item) for item in sys.argv[2:])
+        try:
+            covidAnalyzer.get_recovered_ratio(country_name)
+            covidAnalyzer.find_average_death_rate(measure)
+        except Exception as ex:
+            print(ex)
+        print(covidAnalyzer.find_efficient_measures())
+
+
+
