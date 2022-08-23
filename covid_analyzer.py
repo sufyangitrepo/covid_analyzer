@@ -5,8 +5,8 @@
     2. calculate the average death rate on any given measure      =>  averager_death_rate()
     3. find 5 mostly adopted efficient measures                  =>   efficient_measures()
 """
-import sys
 
+import sys
 import pandas as pd
 from pandas import errors
 import enum
@@ -35,18 +35,17 @@ class CovidAnalyzer:
        efficient_measures : this calculates the five mostly adopted measures
     """
 
-    def __init__(self, covid_file_path: str, measure_file_path: str):
-
+    def __init__(self,covid_stats: str, measure_stats: str ):
         """
-        Constructor takes two parameters one
-        covid_file_path:      path of the file with covid data
-        measures_file_path:   path another file with measures data
-
+                Constructor takes two parameters one
+                covid_file_path:      path of the file with covid data
+                measures_file_path:   path another file with measures data
         """
         self.__covid_stats = None
         self.__safety_measures_states = None
-        self.read_measures_stats(safety_measures_file_path=measure_file_path)
-        self.read_covid_stats(covid_file_path=covid_file_path)
+        self.read_covid_stats(covid_stats)
+        self.read_measures_stats(measure_stats)
+
 
     def read_measures_stats(self, safety_measures_file_path: str):
 
@@ -137,7 +136,7 @@ class CovidAnalyzer:
             """
         deaths_rate_sum = 0
         series_of_countries_with_measures = \
-                self.fetch_records('measure', measure, FileType.MEASURES_STATS_FLAG)['country']
+            self.fetch_records('measure', measure, FileType.MEASURES_STATS_FLAG)['country']
 
         for i in series_of_countries_with_measures:
             total_deaths_series = \
@@ -156,7 +155,6 @@ class CovidAnalyzer:
                   format(deaths_rate_sum / len(series_of_countries_with_measures)))
         else:
             raise ValueError('there is no country taking this measure')
-
 
     def find_efficient_measures(self) -> EmptyDataError:
 
@@ -198,51 +196,26 @@ class CovidAnalyzer:
         return dict_of_result  # return final result
 
 
-
-
 if __name__ == "__main__":
-
     length = len(sys.argv)
     try:
-       covidAnalyzer = \
-           CovidAnalyzer(covid_file_path='covid_cases_stats.csv',
-                         measure_file_path='covid_safety_measures.csv')
-    except Exception as e:
-        raise FileNotFoundError('File not found')
-
-    if length == 1:
-
-        try:
-            country_name = input("enter country name: ")
-            covidAnalyzer.get_recovered_ratio(country_name)
-            measure = input('enter measure: ')
-            covidAnalyzer.find_average_death_rate(measure)
-        except Exception as e:
-            print(str(e))
-            print(covidAnalyzer.find_efficient_measures())
-    elif length == 2:
-        country_name = sys.argv[1]
-        try:
-            covidAnalyzer.get_recovered_ratio(country_name)
-        except Exception as ex:
-            print(ex)
-        try:
-            measure = input('enter measure: ')
-            covidAnalyzer.find_average_death_rate(measure)
-        except Exception as e:
-            print(str(e))
-        print(covidAnalyzer.find_efficient_measures())
-
-    elif length > 2:
-
-        country_name = sys.argv[1]
-        measure = ' '.join(str(item) for item in sys.argv[2:])
-        try:
-            covidAnalyzer.get_recovered_ratio(country_name)
-            covidAnalyzer.find_average_death_rate(measure)
-        except Exception as ex:
-            print(ex)
-        print(covidAnalyzer.find_efficient_measures())
-
-
-
+        covidAnalyzer = \
+            CovidAnalyzer(covid_stats='covid_cases_stats.csv',
+                          measure_stats='covid_safety_measures.csv')
+        if length > 4:
+            argument = sys.argv[2]
+            if argument == '-a':
+                country_name = sys.argv[3]
+                covidAnalyzer.get_recovered_ratio(country_name)
+            elif argument == '-b':
+                list = sys.argv[3:]
+                measure = ' '.join(list)
+                covidAnalyzer.find_average_death_rate(measure)
+            elif argument == '-c':
+                print(covidAnalyzer.find_efficient_measures())
+            else:
+                print('argument not correct')
+        else:
+            print('argument not correct')
+    except FileNotFoundError as e:
+        print('file path is not correct')
